@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>猜猜台灣房價</title>
+<meta name="theme-color" content="#3f8f5a">
+<style>
+:root {
+  --green: #3f8f5a;
+  --green-dark: #2d6b42;
+  --green-soft: #e3efe6;
+  --paper: #fbf8ef;
+  --ink: #232323;
+  --muted: #777;
+  --line: #ddd8c8;
+  --red: #d8342b;
+  --red-soft: #fbe3e1;
+  --hl: #fff1a8;
+  --bg: #f4f2ec;
+  --card: #fff;
+  --btn: #232a26;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #2a2924; --ink: #ece9e0; --muted: #a29f95; --line: #4a463c;
+    --bg: #1b1a17; --card: #24231f; --green-soft: #22352a; --hl: #5a4f17;
+    --red-soft: #4a2321; --btn: #e9ebe6;
+  }
+  :root:not([data-theme="light"]) .btn-primary { color: #1b1a17; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+.mono { font-family: "Noto Sans Mono CJK TC", "MingLiU", ui-monospace, monospace; }
+
+header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; max-width: 1180px; margin: 0 auto;
+}
+header h1 { font-size: 20px; margin: 0; letter-spacing: 1px; white-space: nowrap; }
+header .spacer { flex: 1 0 0; }
+.pill { background: var(--green-soft); border-radius: 999px; padding: 3px 12px; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.icon-btn { background: none; border: 0; font-size: 18px; padding: 4px 8px; border-radius: 8px; }
+.icon-btn:hover { background: var(--green-soft); }
+
+main { max-width: 1180px; margin: 0 auto; padding: 0 16px 24px; }
+.game { display: grid; grid-template-columns: 1fr 380px; gap: 20px; align-items: start; }
+
+/* 地圖 */
+.map-box { background: var(--card); border-radius: 14px; overflow: hidden; border: 1px solid var(--line); }
+.map-tabs { display: flex; align-items: center; gap: 4px; padding: 6px 8px 0; border-bottom: 1px solid var(--line); }
+.map-tabs button {
+  background: none; border: 1px solid transparent; border-bottom: 0;
+  padding: 6px 14px; font-size: 14px; border-radius: 8px 8px 0 0; color: var(--muted);
+}
+.map-tabs button.on { background: var(--card); border-color: var(--line); color: var(--ink); font-weight: 600; margin-bottom: -1px; }
+.map-tabs .spacer { flex: 1; }
+.map-tabs a { color: var(--green); font-size: 13px; text-decoration: none; font-weight: 600; padding: 6px 4px; }
+.map-frame { width: 100%; height: min(70vh, 560px); border: 0; display: block; background: #e8e6df; }
+
+/* 實價登錄單 */
+.receipt {
+  background: var(--paper); border-radius: 6px; padding: 18px 18px 14px; position: relative;
+  box-shadow: 0 1px 0 var(--line), 0 6px 18px rgba(0,0,0,.06);
+  font-size: 14px; line-height: 1.75; overflow: hidden;
+}
+.receipt h2 { text-align: center; font-size: 17px; letter-spacing: 4px; margin: 0 0 4px; }
+.receipt .sep { text-align: center; color: var(--muted); letter-spacing: 1px; white-space: nowrap; overflow: hidden; margin: 2px 0; }
+.receipt .sep b { color: var(--ink); letter-spacing: 3px; padding: 0 6px; }
+.row { display: flex; gap: 4px; }
+.row .k { flex: none; width: 4em; text-align-last: justify; }
+.row .c { flex: none; }
+.row .v { flex: 1; }
+.row2 { display: flex; justify-content: space-between; gap: 8px; }
+.row2 > div { display: flex; }
+.row2 .k2::after { content: "："; }
+mark { background: linear-gradient(transparent 35%, var(--hl) 35%); color: inherit; padding: 0 1px; }
+.pending { text-align: center; color: var(--muted); margin: 6px 0; }
+.fine { font-size: 11px; color: var(--muted); text-align: center; margin-top: 10px; line-height: 1.5; }
+.stamp {
+  position: absolute; right: 16px; top: 52%; width: 74px; height: 74px;
+  border: 3px solid var(--red); color: var(--red); border-radius: 8px;
+  display: grid; place-items: center; font-size: 26px; font-weight: 700;
+  transform: rotate(-12deg) scale(1); opacity: .85; font-family: "BiauKai", "DFKai-SB", serif;
+  animation: stamp .35s cubic-bezier(.2,1.6,.4,1);
+}
+.stamp.long { font-size: 20px; }
+@keyframes stamp { from { transform: rotate(-12deg) scale(2.2); opacity: 0; } }
+
+/* 出價 */
+.bid { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-top: 14px; }
+.bid-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-height: 48px; }
+.price { font-size: 34px; font-weight: 800; letter-spacing: .5px; }
+.price small { font-size: 16px; font-weight: 600; margin-left: 2px; }
+.price input {
+  font: inherit; width: 5.2em; border: 0; border-bottom: 2px solid var(--green);
+  background: transparent; color: inherit; outline: none; padding: 0;
+}
+.unit { color: var(--muted); font-size: 14px; text-align: right; }
+.hint { font-size: 11px; color: var(--green); margin-top: -2px; }
+.slider-row { display: flex; align-items: center; gap: 10px; margin: 12px 0 4px; }
+.round-btn { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); font-size: 18px; line-height: 1; flex: none; }
+.track { position: relative; flex: 1; height: 34px; touch-action: none; cursor: pointer; }
+.track .rail { position: absolute; left: 0; right: 0; top: 15px; height: 4px; border-radius: 2px; background: var(--line); }
+.track .fill { position: absolute; left: 0; top: 15px; height: 4px; border-radius: 2px; background: var(--green); }
+.track .err { position: absolute; top: 13px; height: 8px; border-radius: 4px; background: var(--red); }
+.track .knob {
+  position: absolute; top: 4px; width: 26px; height: 26px; margin-left: -13px; border-radius: 50%;
+  background: #fff; border: 1px solid #ccc; box-shadow: 0 1px 4px rgba(0,0,0,.25);
+}
+.track .knob.answer { background: #c95a3a; border-color: #fff; width: 20px; height: 20px; margin-left: -10px; top: 7px; }
+.track .tick { position: absolute; top: 10px; width: 2px; height: 14px; margin-left: -1px; background: var(--ink); border-radius: 1px; }
+.scale { position: relative; height: 18px; margin: 0 42px; font-size: 11px; color: var(--muted); }
+.scale span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.btn-primary {
+  display: block; width: 100%; margin-top: 12px; padding: 13px; border: 0; border-radius: 12px;
+  background: var(--btn); color: #fff; font-size: 17px; font-weight: 700; letter-spacing: 2px;
+}
+.btn-primary:active { transform: translateY(1px); }
+.btn-ghost { background: none; border: 1px solid var(--line); border-radius: 10px; padding: 9px 14px; font-size: 14px; }
+.result-top { display: flex; align-items: flex-end; justify-content: space-between; }
+.old { text-decoration: line-through; color: var(--muted); font-size: 20px; font-weight: 700; }
+.verdict { font-size: 12px; color: var(--muted); text-align: center; }
+.actual { font-size: 34px; font-weight: 800; color: #c95a3a; }
+.actual small { font-size: 16px; }
+
+/* 成績單 */
+.report { display: grid; grid-template-columns: 300px 1fr; gap: 28px; max-width: 900px; margin: 16px auto; align-items: start; }
+.card-outer { background: var(--green); border-radius: 14px; padding: 14px; }
+.card-inner { background: #fff; color: #232323; border-radius: 60px 60px 8px 8px / 26px 26px 8px 8px; padding: 22px 18px 16px; text-align: center; position: relative; }
+.card-inner .t { font-weight: 700; font-size: 14px; }
+.logo { display: inline-flex; border: 2px solid var(--green); margin: 8px 0 2px; }
+.logo span { padding: 2px 6px; font-size: 22px; font-weight: 700; color: #232323; }
+.logo span + span { border-left: 2px solid var(--green); }
+.card-inner .date { font-size: 11px; color: #888; }
+.card-inner .stamp-sm {
+  width: 30px; height: 30px; border: 2px solid var(--red); color: var(--red); border-radius: 50%;
+  display: grid; place-items: center; font-size: 12px; font-weight: 700; margin: 6px auto 8px;
+}
+.chart { border: 2px solid var(--green); border-radius: 10px; padding: 6px; }
+.streak { margin: 12px 0 6px; font-size: 13px; }
+.streak b { font-size: 18px; margin: 0 6px; }
+.brand { border-top: 1px dashed #ccc; padding-top: 10px; color: var(--green-dark); font-weight: 800; font-size: 18px; letter-spacing: 1px; }
+.answers { border: 2px solid var(--green); border-radius: 12px; padding: 4px 14px; position: relative; background: var(--card); }
+.answers .legend { position: absolute; top: -10px; left: 14px; background: var(--bg); padding: 0 6px; font-size: 12px; color: var(--green); }
+.ans { padding: 10px 0; border-bottom: 1px dashed var(--line); }
+.ans:last-child { border-bottom: 0; }
+.ans .h { font-weight: 600; }
+.ans .h a { color: inherit; text-decoration: none; border-bottom: 2px solid var(--green); }
+.ans .bar { position: relative; height: 14px; margin: 8px 30% 4px 0; }
+.ans .bar .axis { position: absolute; left: 0; right: 0; top: 6px; height: 2px; background: var(--line); }
+.ans .bar .seg { position: absolute; top: 3px; height: 8px; border-radius: 4px; background: var(--red); }
+.ans .bar .mk { position: absolute; top: 0; width: 2px; height: 14px; background: var(--ink); }
+.ans .meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.dist { margin-top: 18px; }
+.dist h3 { font-size: 15px; margin: 0 0 8px; display: flex; justify-content: space-between; align-items: center; }
+.bars { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; align-items: end; height: 120px; margin-top: 26px; border-bottom: 2px solid var(--ink); }
+.bars div { background: var(--green-soft); position: relative; border-radius: 3px 3px 0 0; min-height: 2px; }
+.bars div.on { background: var(--green); }
+.bars div span { position: absolute; top: -18px; left: 0; right: 0; text-align: center; font-size: 11px; color: var(--muted); }
+.bars div.on span { color: var(--green); font-weight: 700; }
+.bar-labels { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; text-align: center; font-size: 12px; margin-top: 4px; }
+.actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.actions .btn-primary { margin-top: 0; flex: 1; }
+.setup { max-width: 720px; margin: 8px auto; }
+.setup h2 { margin: 8px 0 4px; font-size: 22px; }
+.sub { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
+.sub.warn { color: var(--red); }
+.region { margin-top: 14px; }
+.region-name { background: none; border: 0; padding: 0; font-weight: 700; font-size: 15px; color: var(--green); margin-bottom: 8px; }
+.region-name::after { content: " 全選"; font-weight: 400; font-size: 12px; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 7px 14px; font-size: 15px; }
+.chip small { color: var(--muted); font-size: 11px; margin-left: 5px; }
+.chip.on { background: var(--green); border-color: var(--green); color: #fff; }
+.chip.on small { color: rgba(255,255,255,.8); }
+.chip.all { font-weight: 700; }
+.setup-foot { position: sticky; bottom: 0; background: var(--bg); padding: 14px 0 10px; margin-top: 18px; border-top: 1px solid var(--line); }
+.setup-foot .sub { margin: 0; }
+.btn-primary:disabled { opacity: .35; cursor: not-allowed; }
+footer { text-align: center; font-size: 12px; color: var(--muted); padding: 16px; }
+footer a { color: inherit; }
+
+/* 說明 */
+dialog { border: 0; border-radius: 16px; padding: 0; max-width: 420px; width: calc(100% - 32px); background: var(--card); color: var(--ink); }
+dialog::backdrop { background: rgba(0,0,0,.45); }
+.how { padding: 22px; }
+.how h2 { text-align: center; margin: 0 0 12px; letter-spacing: 6px; }
+.how ol { padding-left: 20px; line-height: 1.8; margin: 0 0 12px; }
+.how table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 8px; }
+.how td { border-bottom: 1px solid var(--line); padding: 4px 6px; }
+.toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); background: var(--btn); color: var(--bg); padding: 10px 18px; border-radius: 999px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.toast.show { opacity: 1; }
+
+@media (max-width: 860px) {
+  .game { grid-template-columns: 1fr; gap: 12px; }
+  .map-frame { height: 42vh; }
+  .report { grid-template-columns: 1fr; }
+  .card-outer { max-width: 320px; margin: 0 auto; width: 100%; }
+  header h1 { font-size: 18px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>猜猜台灣房價</h1>
+  <span class="spacer"></span>
+  <span class="pill" id="progress"></span>
+  <button class="icon-btn" id="helpBtn" aria-label="怎麼玩">?</button>
+</header>
+<main id="app"></main>
+<footer>成交資料：內政部不動產交易實價查詢服務網（實價登錄公開資料）<br><span id="dataInfo"></span></footer>
+
+<dialog id="help">
+  <div class="how">
+    <h2>怎麼玩</h2>
+    <ol>
+      <li>先選要猜哪些縣市（不選就是全台灣），每回合隨機 5 間，玩幾回都可以。</li>
+      <li>看地圖、實價登錄資料，猜它的成交總價。</li>
+      <li>拖拉滑桿、按 ± 微調，或點價格直接輸入。</li>
+      <li>依誤差打分數，5 間平均就是這回合的成績。</li>
+    </ol>
+    <table>
+      <tr><td>甲上上</td><td>誤差 5% 以內</td></tr>
+      <tr><td>甲上</td><td>10% 以內</td></tr>
+      <tr><td>甲</td><td>20% 以內</td></tr>
+      <tr><td>乙</td><td>30% 以內</td></tr>
+      <tr><td>丙</td><td>50% 以內</td></tr>
+      <tr><td>訂正</td><td>超過 50%</td></tr>
+    </table>
+    <button class="btn-primary" id="helpClose">知道了</button>
+  </div>
+</dialog>
+<div class="toast" id="toast"></div>
+
+<script src="data.js"></script>
+<script>
+const DATA = window.HOUSE_DATA;
+const ROUNDS = 5;                        // 每回合題數
+const NUMS = '一二三四五六七八九十';
+const MIN = 100, MAX = 20000;            // 萬，滑桿範圍（對數）
+const TICKS = [[200, '200萬'], [1000, '1000萬'], [3000, '3000萬'], [10000, '1億']];
+const GRADES = [[5, '甲上上'], [10, '甲上'], [20, '甲'], [30, '乙'], [50, '丙'], [Infinity, '訂正']];
+const GRADE_ORDER = ['訂正', '丙', '乙', '甲', '甲上', '甲上上'];
+const STORE_KEY = 'house-guess-v2';
+
+const $ = s => document.querySelector(s);
+const app = $('#app');
+const fmt = n => Math.round(n).toLocaleString('en-US');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// ---------- 儲存 ----------
+// { seenHelp, seen: [題庫索引], history: [每回合成績] }
+function load() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch { return {}; }
+}
+function save(s) {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(s)); } catch {}
+}
+
+// ---------- 出題 ----------
+// 隨機挑一回合：優先挑沒出過的，同回合盡量不同縣市、同型態最多 2 間
+// cities 為空陣列 = 全台灣
+function pickHouses(cities) {
+  const store = load();
+  const all = DATA.houses;
+  const inArea = all.map((_, i) => i).filter(i => !cities.length || cities.includes(all[i].city));
+  let seen = new Set(store.seen || []);
+  let pool = inArea.filter(i => !seen.has(i));
+  if (pool.length < Math.min(ROUNDS * 3, inArea.length)) {   // 這個範圍的題目快用完就重新開始
+    inArea.forEach(i => seen.delete(i));
+    pool = inArea;
+  }
+  const picked = [];
+  for (let tries = 0; picked.length < ROUNDS && tries < 2000; tries++) {
+    const i = pool[Math.floor(Math.random() * pool.length)];
+    const sameType = picked.filter(j => all[j].type === all[i].type).length;
+    const clash = (tries < 1000 && sameType >= 2)
+      || picked.some(j => j === i || (tries < 1000 && all[j].city === all[i].city));
+    if (!clash) picked.push(i);
+  }
+  picked.forEach(i => seen.add(i));
+  store.seen = [...seen];
+  save(store);
+  return picked.map(i => all[i]);
+}
+
+// ---------- 分數 ----------
+const errPct = (guess, price) => (guess - price) / price * 100;
+const gradeOf = e => GRADES.find(([lim]) => Math.abs(e) <= lim)[1];
+
+// ---------- 對數滑桿 ----------
+const toPos = v => (Math.log(v) - Math.log(MIN)) / (Math.log(MAX) - Math.log(MIN));
+const fromPos = p => Math.exp(Math.log(MIN) + p * (Math.log(MAX) - Math.log(MIN)));
+const stepOf = v => v < 1000 ? 10 : v < 3000 ? 20 : v < 10000 ? 50 : 100;
+const snap = v => { const s = stepOf(v); return Math.min(MAX, Math.max(MIN, Math.round(v / s) * s)); };
+
+// ---------- 狀態 ----------
+let state;   // { round, houses, guesses[], idx, revealed }
+
+const REGIONS = [
+  ['北部', ['臺北市', '新北市', '基隆市', '桃園市', '新竹市', '新竹縣', '宜蘭縣']],
+  ['中部', ['苗栗縣', '臺中市', '彰化縣', '南投縣', '雲林縣']],
+  ['南部', ['嘉義市', '嘉義縣', '臺南市', '高雄市', '屏東縣']],
+  ['東部・離島', ['花蓮縣', '臺東縣', '澎湖縣', '金門縣', '連江縣']],
+];
+const CITY_COUNT = DATA.houses.reduce((m, h) => (m[h.city] = (m[h.city] || 0) + 1, m), {});
+const selectedCities = () => (load().cities || []).filter(c => CITY_COUNT[c]);
+const areaLabel = cities => !cities.length ? '全台灣' : cities.length <= 2 ? cities.join('、') : `${cities.length} 縣市`;
+
+// ---------- 畫面：選縣市 ----------
+function renderSetup() {
+  let picked = new Set(selectedCities());
+  $('#progress').textContent = '選擇出題範圍';
+  app.innerHTML = `<div class="setup">
+    <h2>要猜哪裡的房子？</h2>
+    <p class="sub">可以複選；都不選就是全台灣隨機出題。每回合 ${ROUNDS} 間。</p>
+    <button class="chip all" id="allTw"></button>
+    ${REGIONS.map(([name, cities]) => `<div class="region">
+      <button class="region-name" data-region="${name}">${name}</button>
+      <div class="chips">${cities.filter(c => CITY_COUNT[c]).map(c =>
+        `<button class="chip" data-city="${c}">${c}<small>${CITY_COUNT[c]}</small></button>`).join('')}</div>
+    </div>`).join('')}
+    <div class="setup-foot">
+      <div class="sub" id="poolInfo"></div>
+      <button class="btn-primary" id="go">開始猜</button>
+    </div>
+  </div>`;
+
+  const refresh = () => {
+    app.querySelectorAll('[data-city]').forEach(b => b.classList.toggle('on', picked.has(b.dataset.city)));
+    $('#allTw').classList.toggle('on', picked.size === 0);
+    $('#allTw').textContent = `全台灣（${DATA.houses.length} 間）`;
+    const n = picked.size ? [...picked].reduce((a, c) => a + CITY_COUNT[c], 0) : DATA.houses.length;
+    const enough = n >= ROUNDS;
+    $('#poolInfo').textContent = enough
+      ? `出題範圍：${areaLabel([...picked])}，共 ${n} 間`
+      : `目前只有 ${n} 間，至少要 ${ROUNDS} 間，請再多選幾個縣市`;
+    $('#poolInfo').classList.toggle('warn', !enough);
+    $('#go').disabled = !enough;
+  };
+  app.querySelectorAll('[data-city]').forEach(b => b.onclick = () => {
+    const c = b.dataset.city;
+    picked.has(c) ? picked.delete(c) : picked.add(c);
+    refresh();
+  });
+  app.querySelectorAll('[data-region]').forEach(b => b.onclick = () => {
+    const cities = REGIONS.find(r => r[0] === b.dataset.region)[1].filter(c => CITY_COUNT[c]);
+    const allOn = cities.every(c => picked.has(c));
+    cities.forEach(c => allOn ? picked.delete(c) : picked.add(c));
+    refresh();
+  });
+  $('#allTw').onclick = () => { picked.clear(); refresh(); };
+  $('#go').onclick = () => {
+    const store = load();
+    store.cities = [...picked];
+    save(store);
+    startRound();
+  };
+  refresh();
+
+  const store = load();
+  if (!store.seenHelp) { $('#help').showModal(); store.seenHelp = true; save(store); }
+}
+
+function startRound() {
+  const cities = selectedCities();
+  const houses = pickHouses(cities);
+  const store = load();
+  state = { round: (store.history || []).length + 1, area: areaLabel(cities), houses, guesses: [], idx: 0, revealed: false };
+  renderRound();
+  window.scrollTo(0, 0);
+}
+
+function finishRound() {
+  const store = load();
+  store.history = store.history || [];
+  store.history.push(totals().grade);
+  save(store);
+}
+
+// ---------- 畫面：一回合 ----------
+function mapQuery(h) {
+  return h.addr.replace(/(號).*$/, '$1');
+}
+function mapSrc(h, sat) {
+  return `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery(h))}&z=17&t=${sat ? 'k' : 'm'}&hl=zh-TW&output=embed`;
+}
+
+function receiptHTML(h, guess) {
+  const r = (k, v) => v == null ? '' : `<div class="row"><span class="k">${k}</span><span class="c">：</span><span class="v">${v}</span></div>`;
+  const r2 = (k1, v1, k2, v2) => `<div class="row2"><div><span class="row"><span class="k">${k1}</span><span class="c">：</span></span><span>${v1 ?? '—'}</span></div>${v2 == null ? '' : `<div><span class="k2">${k2}</span>${v2}</div>`}</div>`;
+  const ageTxt = h.age == null ? '' : `<mark>（屋齡${h.age}年）</mark>`;
+  const extra = h.type === '透天厝'
+    ? (h.land ? ['土地面積', `<mark>${h.land}坪</mark>`] : [null, null])
+    : (h.publicRatio != null ? ['公設比', `<mark>${h.publicRatio}%</mark>`] : [null, null]);
+  let deal = '<div class="pending">（成交價待揭曉）</div>';
+  if (guess != null) {
+    const e = errPct(guess, h.price), g = gradeOf(e);
+    deal = `<div class="sep">************* <b>成交價</b> *************</div>
+      ${r('成交總價', `<mark>${fmt(h.price)}萬元</mark>`)}
+      ${r('單價', `每坪${h.unit}萬元`)}
+      ${r('你的出價', `<mark>${fmt(guess)}萬元</mark>`)}
+      ${r('中位數', `${h.trade.slice(0, 6)}${h.city}${h.type}<br>${fmt(h.median)}萬元`)}
+      <div class="stamp ${g.length > 1 ? 'long' : ''}">${g}</div>`;
+  }
+  return `<div class="receipt mono">
+    <h2>實價登錄資料</h2>
+    <div class="sep">************** <b>房屋</b> **************</div>
+    ${r('門牌', esc(h.addr))}
+    ${r2('樓層', `<mark>${h.floor}</mark>`, '坪數', `<mark>${h.ping}坪</mark>`)}
+    ${r('完成日期', h.built ? h.built + ageTxt : null)}
+    ${r('建物型態', `<mark>${h.type}</mark>`)}
+    ${r2('電梯', h.elevator, '管委會', h.mgmt)}
+    ${r2('格局', h.layout ? `<mark>${h.layout}</mark>` : null, extra[0], extra[1])}
+    ${r('車位', h.park || '無')}
+    ${r('主要建材', h.material)}
+    <div class="sep">************** <b>交易</b> **************</div>
+    ${r('交易年月', h.trade)}
+    ${deal}
+    <div class="fine">資料來源：內政部依法公開的實價登錄。<br>本遊戲不會出現買賣方個資以及屋內照片等隱私資訊。</div>
+  </div>`;
+}
+
+function renderRound() {
+  const h = state.houses[state.idx];
+  const revealed = state.revealed;
+  const guess = revealed ? state.guesses[state.idx] : null;
+  $('#progress').textContent = `${state.area}・第 ${state.round} 回・${state.idx + 1} / ${ROUNDS}`;
+  const isLast = state.idx === ROUNDS - 1;
+  app.innerHTML = `<div class="game">
+    <div class="map-box">
+      <div class="map-tabs">
+        <button data-map="m" class="on">地圖</button>
+        <button data-map="k">衛星</button>
+        <span class="spacer"></span>
+        <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery(h))}" target="_blank" rel="noopener">街景 ↗</a>
+      </div>
+      <iframe class="map-frame" src="${mapSrc(h, false)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="房子位置"></iframe>
+    </div>
+    <div>
+      ${receiptHTML(h, guess)}
+      <div class="bid" id="bid"></div>
+    </div>
+  </div>`;
+  app.querySelectorAll('[data-map]').forEach(b => b.onclick = () => {
+    app.querySelectorAll('[data-map]').forEach(x => x.classList.toggle('on', x === b));
+    app.querySelector('.map-frame').src = mapSrc(h, b.dataset.map === 'k');
+  });
+  revealed ? renderResultBid(h, guess, isLast) : renderBid(h);
+}
+
+function trackTicksHTML() {
+  return TICKS.map(([v]) => `<div class="tick" style="left:${toPos(v) * 100}%"></div>`).join('');
+}
+function scaleHTML() {
+  return `<div class="scale">${TICKS.map(([v, l]) => `<span style="left:${toPos(v) * 100}%">${l}</span>`).join('')}</div>`;
+}
+
+function renderBid(h) {
+  const box = $('#bid');
+  let value = snap(DATA.nationalMedian[h.type] || 1000);
+  box.innerHTML = `
+    <div class="bid-top">
+      <div class="price" id="priceTxt"></div>
+      <div class="unit" id="unitTxt"></div>
+    </div>
+    <div class="hint" id="hint">今年全國${h.type}中位數</div>
+    <div class="slider-row">
+      <button class="round-btn" id="minus" aria-label="減少">−</button>
+      <div class="track" id="track" role="slider" tabindex="0" aria-label="出價">
+        <div class="rail"></div><div class="fill" id="fill"></div>${trackTicksHTML()}<div class="knob" id="knob"></div>
+      </div>
+      <button class="round-btn" id="plus" aria-label="增加">+</button>
+    </div>
+    ${scaleHTML()}
+    <button class="btn-primary" id="submit">就這個價</button>`;
+  const priceTxt = $('#priceTxt'), unitTxt = $('#unitTxt'), knob = $('#knob'), fill = $('#fill'), track = $('#track');
+
+  const set = (v, touched = true) => {
+    value = snap(v);
+    priceTxt.innerHTML = `${fmt(value)}<small>萬</small>`;
+    unitTxt.textContent = `每坪 ${(value / h.ping).toFixed(1)} 萬`;
+    const p = toPos(value) * 100;
+    knob.style.left = p + '%'; fill.style.width = p + '%';
+    track.setAttribute('aria-valuenow', value);
+    if (touched) $('#hint').style.visibility = 'hidden';
+  };
+  set(value, false);
+
+  const fromEvent = e => {
+    const r = track.getBoundingClientRect();
+    set(fromPos(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width))));
+  };
+  track.onpointerdown = e => { track.setPointerCapture(e.pointerId); fromEvent(e); };
+  track.onpointermove = e => { if (track.hasPointerCapture(e.pointerId)) fromEvent(e); };
+  track.onkeydown = e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { set(value + stepOf(value)); e.preventDefault(); }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { set(value - stepOf(value - 1)); e.preventDefault(); }
+    if (e.key === 'Enter') submit();
+  };
+  $('#minus').onclick = () => set(value - stepOf(value - 1));
+  $('#plus').onclick = () => set(value + stepOf(value));
+
+  // 點價格直接輸入
+  priceTxt.onclick = () => {
+    if (priceTxt.querySelector('input')) return;
+    priceTxt.innerHTML = `<input type="number" inputmode="numeric" min="${MIN}" max="${MAX}" value="${value}"><small>萬</small>`;
+    const inp = priceTxt.querySelector('input');
+    inp.focus(); inp.select();
+    const commit = () => set(Number(inp.value) || value);
+    inp.onblur = commit;
+    inp.onkeydown = e => { if (e.key === 'Enter') inp.blur(); if (e.key === 'Escape') { inp.value = value; inp.blur(); } };
+  };
+
+  const submit = () => {
+    const inp = priceTxt.querySelector('input');
+    if (inp) set(Number(inp.value) || value);
+    state.guesses[state.idx] = value;
+    state.revealed = true;
+    if (state.idx === ROUNDS - 1) finishRound();
+    renderRound();
+  };
+  $('#submit').onclick = submit;
+}
+
+function renderResultBid(h, guess, isLast) {
+  const e = errPct(guess, h.price);
+  const lo = Math.min(guess, h.price), hi = Math.max(guess, h.price);
+  $('#bid').innerHTML = `
+    <div class="result-top">
+      <div><div class="old">${fmt(guess)}</div><div class="unit" style="text-align:left;text-decoration:line-through">每坪 ${(guess / h.ping).toFixed(1)} 萬</div></div>
+      <div class="verdict">${e < 0 ? '猜低' : '猜高'} ${Math.abs(Math.round(e))}%<br>→</div>
+      <div style="text-align:right"><div class="actual">${fmt(h.price)}<small> 萬</small></div><div class="unit">每坪 ${h.unit} 萬</div></div>
+    </div>
+    <div class="slider-row">
+      <span style="width:32px"></span>
+      <div class="track">
+        <div class="rail"></div>${trackTicksHTML()}
+        <div class="err" style="left:${toPos(Math.max(lo, MIN)) * 100}%;width:${(toPos(Math.min(hi, MAX)) - toPos(Math.max(lo, MIN))) * 100}%"></div>
+        <div class="tick" style="left:${toPos(guess) * 100}%;height:20px;top:7px;width:3px"></div>
+        <div class="knob answer" style="left:${toPos(Math.min(h.price, MAX)) * 100}%"></div>
+      </div>
+      <span style="width:32px"></span>
+    </div>
+    ${scaleHTML()}
+    <button class="btn-primary" id="next">${isLast ? '領取成績單' : '下一間'}</button>`;
+  $('#next').onclick = () => {
+    if (isLast) { state.idx = ROUNDS; return renderReport(); }
+    state.idx++; state.revealed = false;
+    renderRound();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+}
+
+// ---------- 畫面：成績單 ----------
+function totals() {
+  const errs = state.houses.map((h, i) => errPct(state.guesses[i], h.price));
+  const avg = errs.reduce((a, e) => a + Math.abs(e), 0) / errs.length;
+  return { errs, grade: gradeOf(avg), avg };
+}
+
+function chartSVG(errs) {
+  const W = 230, H = 110, mid = 52, cap = 80;
+  const scale = e => Math.max(-1, Math.min(1, e / cap)) * 38;
+  const gap = (W - 20) / errs.length, half = Math.min(16, gap / 2 - 3);
+  const xs = errs.map((_, i) => 10 + gap * (i + .5));
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">
+    <rect x="0" y="${mid}" width="${W}" height="${H - mid - 22}" fill="#e3efe6"/>
+    <line x1="4" x2="${W - 4}" y1="${mid}" y2="${mid}" stroke="#232323" stroke-width="1.5"/>`;
+  errs.forEach((e, i) => {
+    const y = mid - scale(e), x = xs[i];
+    const color = '#d8342b';
+    s += `<path d="M${x - half} ${mid} L${x - half * .6} ${y} L${x + half * .6} ${y} L${x + half} ${mid}" fill="${e > 0 ? '#fbe3e1' : 'none'}" stroke="${color}" stroke-width="1.5" ${e < 0 ? 'stroke-dasharray="3 2"' : ''}/>
+      <text x="${x}" y="${e > 0 ? y - 5 : y + 13}" text-anchor="middle" font-size="9" fill="${color}" font-weight="700">${e > 0 ? '+' : ''}${Math.round(e)}%</text>
+      <text x="${x}" y="${H - 11}" text-anchor="middle" font-size="9" fill="#d8342b">${i + 1}</text>
+      <text x="${x}" y="${H - 1}" text-anchor="middle" font-size="8" fill="#d8342b">${e < 0 ? '猜低' : '猜高'}</text>`;
+  });
+  return s + '</svg>';
+}
+
+function renderReport() {
+  const { errs, grade } = totals();
+  const roundTxt = `${state.area}・第 ${state.round} 回`;
+  $('#progress').textContent = roundTxt;
+
+  // 個人歷史成績分布
+  const history = load().history || [];
+  const counts = Object.fromEntries(GRADE_ORDER.map(g => [g, 0]));
+  history.forEach(g => counts[g]++);
+  const maxC = Math.max(1, ...Object.values(counts));
+  const hits = errs.filter(e => Math.abs(e) <= 10).length;
+
+  const bands = state.houses.map(h => h.price).concat(state.guesses);
+  const bmin = Math.min(...bands) * 0.8, bmax = Math.max(...bands) * 1.2;
+  const bpos = v => (Math.log(v) - Math.log(bmin)) / (Math.log(bmax) - Math.log(bmin)) * 100;
+
+  app.innerHTML = `<div class="report">
+    <div>
+      <div class="card-outer">
+        <div class="card-inner">
+          <div class="t">猜猜台灣房價</div>
+          <div class="logo"><span>房</span><span>價</span></div>
+          <div class="date">${roundTxt}・成績單</div>
+          <div class="stamp-sm" style="${grade.length > 1 ? 'font-size:9px' : ''}">${grade}</div>
+          <div class="chart">${chartSVG(errs)}</div>
+          <div class="streak">誤差 10% 內<b>${hits}</b>/ ${ROUNDS} 間</div>
+          <div class="brand">台灣房價 GUESS</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn-primary" id="again">再來一回（${ROUNDS} 間）</button>
+      </div>
+      <div class="actions">
+        <button class="btn-ghost" id="changeArea" style="flex:1">換出題縣市</button>
+        <button class="btn-ghost" id="share" style="flex:1">分享成績</button>
+      </div>
+    </div>
+    <div>
+      <div class="answers">
+        <span class="legend">答案</span>
+        ${state.houses.map((h, i) => {
+          const g = state.guesses[i], e = errs[i];
+          const a = bpos(Math.min(g, h.price)), b = bpos(Math.max(g, h.price));
+          return `<div class="ans">
+            <div class="h">${NUMS[i]}　<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery(h))}" target="_blank" rel="noopener">${h.city}${h.dist !== h.city ? h.dist : ''} ・ ${h.type}</a></div>
+            <div class="bar"><div class="axis"></div><div class="seg" style="left:${a}%;width:${Math.max(b - a, 1)}%"></div><div class="mk" style="left:${bpos(h.price)}%"></div></div>
+            <div class="meta"><span>你猜 ${fmt(g)} 萬 ・ 成交 ${fmt(h.price)} 萬</span><span>${e < 0 ? '猜低' : '猜高'} ${Math.abs(Math.round(e))}%・${gradeOf(e)}</span></div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="dist">
+        <h3><span>我的成績分布（共 ${history.length} 回）</span></h3>
+        <div class="bars">${GRADE_ORDER.map(g => `<div class="${g === grade ? 'on' : ''}" style="height:${counts[g] / maxC * 100}%"><span>${counts[g]}</span></div>`).join('')}</div>
+        <div class="bar-labels">${GRADE_ORDER.map(g => `<span style="${g === grade ? 'color:var(--green);font-weight:700' : ''}">${g}</span>`).join('')}</div>
+      </div>
+    </div>
+  </div>`;
+
+  $('#again').onclick = startRound;
+  $('#changeArea').onclick = () => { renderSetup(); window.scrollTo(0, 0); };
+  $('#share').onclick = () => share(errs, grade, roundTxt);
+}
+
+function share(errs, grade, roundTxt) {
+  const lines = errs.map((e, i) => `${NUMS[i]} ${e < 0 ? '📉猜低' : '📈猜高'} ${Math.abs(Math.round(e))}% ${gradeOf(e)}`);
+  const text = `猜猜台灣房價 ${roundTxt}\n成績：${grade}\n${lines.join('\n')}\n${location.href.split('#')[0]}`;
+  if (navigator.share) navigator.share({ text }).catch(() => {});
+  else navigator.clipboard?.writeText(text).then(() => toast('已複製成績，貼給朋友吧！'), () => toast('複製失敗'));
+}
+
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+$('#dataInfo').textContent = `題庫：${DATA.range || ''} 成交，共 ${DATA.houses.length} 間${DATA.updated ? `・更新於 ${DATA.updated}` : ''}`;
+$('#helpBtn').onclick = () => $('#help').showModal();
+$('#helpClose').onclick = () => $('#help').close();
+renderSetup();
+</script>
+</body>
+</html>

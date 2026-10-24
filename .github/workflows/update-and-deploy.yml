@@ -1,0 +1,74 @@
+# 每天從內政部實價登錄下載新資料、重建題庫，並部署到 GitHub Pages
+name: 更新題庫並部署
+
+on:
+  schedule:
+    - cron: "0 1 * * *"   # 每天 09:00（台灣時間）
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  TZ: Asia/Taipei
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 已下載過的期別、季資料留在快取，不用每天重抓
+      - uses: actions/cache@v4
+        with:
+          path: raw
+          key: lvr-raw-${{ github.run_id }}
+          restore-keys: lvr-raw-
+
+      - name: 下載資料並重建題庫
+        run: |
+          python update_data.py || { cat update.log; exit 1; }
+          cat update.log
+
+      - name: 題庫有變就 commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # 只有更新時間不同時不 commit
+          strip() { sed -E 's/"updated":"[^"]*"//'; }
+          if ! diff -q <(git show HEAD:data.js | strip) <(strip < data.js) > /dev/null; then
+            git add data.js
+            git commit -m "更新題庫 $(date '+%Y-%m-%d')"
+            git push
+          fi
+
+      - name: 準備網站檔案
+        run: |
+          mkdir -p _site
+          cp index.html data.js _site/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: update
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

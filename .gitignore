@@ -1,0 +1,5 @@
+raw/
+update.log
+*.tmp
+*.part
+__pycache__/
